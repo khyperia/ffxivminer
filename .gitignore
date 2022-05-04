@@ -1,0 +1,7 @@
+/.vs/
+/Data/
+/DownloadedData/
+bin/
+obj/
+packages/
+data.js
