@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Json;
 using System.Linq;
 
@@ -15,11 +14,6 @@ namespace Parser
         public double NqSaleVelocity;
         public double HqSaleVelocity;
         public DateTime LastUploadTime;
-
-        private int? _craftingCost;
-        public int Profit => MedianPPU - _craftingCost ?? throw new Exception("crafting cost not calculated");
-        public double GrossFlux => ItemsPerDay * MedianPPU;
-        public double ProfitFlux => ItemsPerDay * Profit;
 
         public MarketItem(JsonValue value)
         {
@@ -41,27 +35,6 @@ namespace Parser
                 { "medianppu", MedianPPU },
                 { "itemsperday", ItemsPerDay },
             };
-        }
-
-        public int ComputeCraftingCost(Dictionary<int, MarketItem> marketDict, Dictionary<int, Recipe> recipes)
-        {
-            if (_craftingCost.HasValue)
-            {
-                return _craftingCost.Value;
-            }
-
-            int actualCost;
-            if (recipes.TryGetValue(ItemID, out var recipe) && recipe.Ingredients.All(i => marketDict.ContainsKey(i.id)))
-            {
-                var craftingCost = recipe.Ingredients.Sum(i => i.amount * marketDict[i.id].ComputeCraftingCost(marketDict, recipes)) / recipe.ResultAmount;
-                actualCost = Math.Min(craftingCost, MedianPPU);
-            }
-            else
-            {
-                actualCost = MedianPPU;
-            }
-            _craftingCost = actualCost;
-            return actualCost;
         }
     }
 }

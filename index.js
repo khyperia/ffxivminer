@@ -27,10 +27,10 @@ function computeCost(marketEntry) {
             }
             else {
                 let ingCost = computeCost(marketMap[ingredient.id]);
-                craftCost += ingCost;
+                craftCost += ingCost * ingredient.amount;
             }
         }
-        marketEntry.craftCost = craftCost;
+        marketEntry.craftCost = craftCost / recipe.resultamount;
         return Math.min(marketEntry.craftCost, marketEntry.medianppu);
     }
     return marketEntry.medianppu;
@@ -40,28 +40,36 @@ for (let entry of globaldata.market) {
     computeCost(entry);
 }
 
-function dumpHtml(marketEntry) {
-    document.write(marketEntry.name);
-    document.write("<ul>");
-    document.write("<li>costs " + marketEntry.medianppu + " on marketboard</li>");
-    if (marketEntry.craftCost) {
-        document.write("<li>costs " + marketEntry.craftCost + " to craft (" + (marketEntry.medianppu / marketEntry.craftCost).toFixed(2) + "x ROI)</li>");
+function dumpHtml(marketEntry, amount) {
+    let generatedHtml = "";
+    if (amount == 1) {
+        generatedHtml += marketEntry.name;
     }
-    document.write("<li>sells " + marketEntry.itemsperday.toFixed(2) + " items/day for a flux of " + (marketEntry.medianppu * marketEntry.itemsperday).toFixed(2) + "</li>");
+    else {
+        generatedHtml += Number(amount.toFixed(2)) + "x " + marketEntry.name;
+    }
+    generatedHtml += " - <a href=\"https://universalis.app/market/" + marketEntry.id + "\">open in universalis</a>";
+    generatedHtml += "<ul>";
+    generatedHtml += "<li>1x costs " + marketEntry.medianppu + " on marketboard</li>";
+    if (marketEntry.craftCost) {
+        generatedHtml += "<li>1x costs " + Number(marketEntry.craftCost.toFixed(2)) + " to craft (" + Number((marketEntry.medianppu / marketEntry.craftCost).toFixed(2)) + "x ROI)</li>";
+    }
+    generatedHtml += "<li>sells " + Number(marketEntry.itemsperday.toFixed(2)) + " items/day for a flux of " + Number((marketEntry.medianppu * marketEntry.itemsperday).toFixed(2)) + "</li>";
     if (marketEntry.id in recipesMap) {
         let recipe = recipesMap[marketEntry.id];
         for (let ingredient of recipe.ingredients) {
-            document.write("<li>Ingredient: ");
+            generatedHtml += "<li>Ingredient: ";
             if (!(ingredient.id in marketMap)) {
-                document.write(ingredient.name + " is not on the marketboard");
+                generatedHtml += ingredient.name + " is not on the marketboard";
             }
             else {
-                dumpHtml(marketMap[ingredient.id]);
+                generatedHtml += dumpHtml(marketMap[ingredient.id], amount * ingredient.amount / recipe.resultamount);
             }
-            document.write("</li>");
+            generatedHtml += "</li>";
         }
     }
-    document.write("</ul>");
+    generatedHtml += "</ul>";
+    return generatedHtml;
 }
 
 function compareMarketEntry(left, right) {
@@ -70,19 +78,62 @@ function compareMarketEntry(left, right) {
     return rightProfitFlux - leftProfitFlux;
 }
 
-let displayMarket = [];
-for (let entry of globaldata.market) {
-    if (entry.craftCost) {
-        displayMarket.push(entry);
-    }
-}
+function render() {
+    let search = document.getElementById("search").value;
+    let minlevel = document.getElementById("minlevel").value;
+    minlevel = minlevel ? Number(minlevel) : 0;
+    let maxlevel = document.getElementById("maxlevel").value;
+    maxlevel = maxlevel ? Number(maxlevel) : Number.MAX_VALUE;
+    let minitemsday = document.getElementById("minitemsday").value;
+    minitemsday = minitemsday ? Number(minitemsday) : 0;
+    let maxitemsday = document.getElementById("maxitemsday").value;
+    maxitemsday = maxitemsday ? Number(maxitemsday) : Number.MAX_VALUE;
+    let mincost = document.getElementById("mincost").value;
+    mincost = mincost ? Number(mincost) : 0;
+    let minroi = document.getElementById("minroi").value;
+    minroi = minroi ? Number(minroi) : 0;
 
-displayMarket.sort(compareMarketEntry);
-
-let i = 0;
-for (let entry of displayMarket) {
-    if (i++ == 100) {
-        break;
+    let displayMarket = [];
+    for (let entry of globaldata.market) {
+        if (!entry.craftCost) {
+            continue;
+        }
+        if (search) {
+            if (!entry.name.toLowerCase().includes(search.toLowerCase())) {
+                continue;
+            }
+        }
+        if (entry.id in recipesMap) {
+            let recipe = recipesMap[entry.id];
+            if (recipe.level < minlevel || recipe.level > maxlevel) {
+                continue;
+            }
+        }
+        if (entry.itemsperday < minitemsday || entry.itemsperday > maxitemsday) {
+            continue;
+        }
+        if (entry.medianppu < mincost) {
+            continue;
+        }
+        let roi = entry.medianppu / entry.craftCost;
+        if (roi < minroi) {
+            continue;
+        }
+        if (entry.craftCost) {
+            displayMarket.push(entry);
+        }
     }
-    dumpHtml(entry);
+
+    displayMarket.sort(compareMarketEntry);
+
+    let i = 0;
+    let generatedHtml = "";
+    for (let entry of displayMarket) {
+        if (i++ == 100) {
+            break;
+        }
+        generatedHtml += dumpHtml(entry, 1);
+    }
+    let node = document.getElementById("generated-content");
+    node.innerHTML = generatedHtml;
 }

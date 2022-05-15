@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Json;
 
 namespace Parser
@@ -7,12 +7,14 @@ namespace Parser
     {
         public int ResultID { get; set; }
         public int ResultAmount { get; set; }
+        public int Level { get; }
         public (int id, int amount)[] Ingredients { get; set; }
 
-        public Recipe(int resultID, int resultAmount, (int id, int amount)[] ingredients)
+        public Recipe(int resultID, int resultAmount, int level, (int id, int amount)[] ingredients)
         {
             ResultID = resultID;
             ResultAmount = resultAmount;
+            Level = level;
             Ingredients = ingredients;
         }
 
@@ -32,6 +34,7 @@ namespace Parser
             {
                 { "resultid", ResultID },
                 { "resultamount", ResultAmount },
+                { "level", Level },
                 { "ingredients", ingredients },
             };
         }

@@ -11,12 +11,12 @@ How to export data:
 
 Download [SaintCoinach](https://github.com/xivapi/SaintCoinach/releases)
 
-    SaintCoinach.Cmd.exe "D:\Games\ffxiv\SquareEnix\FINAL FANTASY XIV - A Realm Reborn" exd 
+    SaintCoinach.Cmd.exe "D:\Games\ffxiv\SquareEnix\FINAL FANTASY XIV - A Realm Reborn" rawexd
 
 (will take a while to run)
 
 Take these files and copy them into the Data folder in the root of this project:
 
-Item.csv
-Recipe.csv
-RecipeLookup.csv
+    Item.csv
+    Recipe.csv
+    RecipeLevelTable.csv

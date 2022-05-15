@@ -1,6 +1,7 @@
 using CsvHelper;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Json;
@@ -53,29 +54,34 @@ namespace Parser
             Console.WriteLine("Loading CSV");
 
             var uniqueNameSet = new HashSet<string>();
-            var itemDb = ParseCSV<FfxivItem>(Path.Combine(RootDirectory, @"Data\Item.csv")).Where(s => !string.IsNullOrWhiteSpace(s.Name) && uniqueNameSet.Add(s.Name)).ToList();
+            var itemDb = ParseCSV<ItemCSV>(Path.Combine(RootDirectory, @"Data\Item.csv")).Where(s => !string.IsNullOrWhiteSpace(s.Name) && uniqueNameSet.Add(s.Name)).ToList();
             var idToName = itemDb.ToDictionary(r => r.Id, r => r.Name!);
             var nameToId = itemDb.ToDictionary(r => r.Name!, r => r.Id);
 
+            var recipeLevelTable = ParseCSV<RecipeLevelTableCSV>(Path.Combine(RootDirectory, @"Data\RecipeLevelTable.csv")).ToDictionary(r => r.ID, r => r);
+
             var uniqueRecipeSet = new HashSet<int>(); // some items have multiple recipes (e.g. ARM & BSM)
-            var recipes = ParseCSV<RecipeCSV>(Path.Combine(RootDirectory, @"Data\Recipe.csv")).Select(r => r.Convert(nameToId)).Where(r => r != null && uniqueRecipeSet.Add(r.ResultID))!.ToList<Recipe>();
+            var recipes = ParseCSV<RecipeCSV>(Path.Combine(RootDirectory, @"Data\Recipe.csv")).Select(r => r.Convert(recipeLevelTable)).Where(r => r != null && uniqueRecipeSet.Add(r.ResultID))!.ToList<Recipe>();
             var recipeSet = recipes.Select(r => r.ResultID).ToHashSet();
             // var recipeDict = recipes.ToDictionary(r => r.ResultID);
 
-            var marketItems = new List<MarketItem>();
-            foreach (var file in Directory.EnumerateFiles(Path.Combine(RootDirectory, @"DownloadedData")))
+            Console.WriteLine("Loading files");
+            var jsonFiles = Directory.EnumerateFiles(Path.Combine(RootDirectory, @"DownloadedData")).Where(f => f.Contains("data")).AsParallel().Select(file =>
             {
-                if (file.Contains("data"))
+                Console.WriteLine($"Loading {file}");
+                using var stream = File.OpenRead(file);
+                return (JsonArray)JsonValue.Load(stream)["items"];
+            }).ToList();
+
+            Console.WriteLine("Parsing");
+            var marketItems = new List<MarketItem>();
+            foreach (var data in jsonFiles)
+            {
+                foreach (var item in data)
                 {
-                    Console.WriteLine($"Loading {file}");
-                    using var stream = File.OpenRead(file);
-                    var data = (JsonArray)JsonValue.Load(stream)["items"];
-                    foreach (var item in data)
+                    if (item["entries"].Count > MinMarketboardEntryCount)
                     {
-                        if (item["entries"].Count > MinMarketboardEntryCount)
-                        {
-                            marketItems.Add(new MarketItem(item));
-                        }
+                        marketItems.Add(new MarketItem(item));
                     }
                 }
             }
@@ -112,58 +118,9 @@ namespace Parser
             export.Save(writerJs);
             writerJs.Flush();
 
+            Process.Start(new ProcessStartInfo("cmd.exe", "/C \"jq < Data\\data.json > Data\\data_formatted.json\"") { WorkingDirectory = RootDirectory })!.WaitForExit();
+
             Console.WriteLine("Done");
-        }
-
-        private static void OldAnalysis(List<MarketItem> marketItems, Dictionary<int, Recipe> recipeDict, Dictionary<int, string> idToName, HashSet<int> recipeSet)
-        {
-            var marketDict = marketItems.ToDictionary(i => i.ItemID);
-            PrintUnbuyables(marketDict, recipeDict, idToName);
-            foreach (var item in marketItems)
-            {
-                item.ComputeCraftingCost(marketDict, recipeDict);
-            }
-
-            // marketItems.Sort((l, r) => l.Flux.CompareTo(r.Flux));
-            marketItems.RemoveAll(i => !recipeSet.Contains(i.ItemID));
-            marketItems.Sort((l, r) => r.ProfitFlux.CompareTo(l.ProfitFlux));
-            marketItems.RemoveRange(100, marketItems.Count - 100);
-
-            var now = DateTime.UtcNow;
-            foreach (var item in marketItems)
-            {
-                // var dateInfo = $"{item.Entries.Length}sells last={item.Entries.Max(i => i.Timestamp)} up={item.lastUploadTime}";
-                var grossInfo = $"gross=${item.GrossFlux:F3}/day = ${item.MedianPPU} * {item.ItemsPerDay:F2}/day";
-                var profitInfo = $"profit=${item.ProfitFlux:F3}/day = ${item.Profit} * {item.ItemsPerDay:F2}/day";
-                Console.WriteLine($"{item.ItemID} {idToName[item.ItemID]} -- {profitInfo} -- {grossInfo}");
-            }
-            // Console.WriteLine($"name,flux,pricePerUnit,itemsPerDay");
-            // foreach (var item in marketItems)
-            // {
-            //     Console.WriteLine($"{idToName[item.ItemID]},{item.Flux:F3},{item.MedianPPU},{item.ItemsPerDay:F2}");
-            // }
-            Console.ReadLine();
-        }
-
-        private static void PrintUnbuyables(Dictionary<int, MarketItem> marketDict, Dictionary<int, Recipe> recipes, Dictionary<int, string> idToName)
-        {
-            var printed = new HashSet<int>();
-            foreach (var recipe in recipes.Values)
-            {
-                Print(recipe.ResultID);
-                foreach ((var id, var _) in recipe.Ingredients)
-                {
-                    Print(id);
-                }
-            }
-
-            void Print(int id)
-            {
-                if (!marketDict.ContainsKey(id) && printed.Add(id))
-                {
-                    Console.WriteLine("Unbuyable: " + id + " - " + idToName[id]);
-                }
-            }
         }
     }
 }
