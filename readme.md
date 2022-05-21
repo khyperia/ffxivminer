@@ -20,3 +20,5 @@ Take these files and copy them into the Data folder in the root of this project:
     Item.csv
     Recipe.csv
     RecipeLevelTable.csv
+
+Alternatively, download the same files from [github.com/xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining).

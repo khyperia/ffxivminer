@@ -56,13 +56,11 @@ namespace Parser
             var uniqueNameSet = new HashSet<string>();
             var itemDb = ParseCSV<ItemCSV>(Path.Combine(RootDirectory, @"Data\Item.csv")).Where(s => !string.IsNullOrWhiteSpace(s.Name) && uniqueNameSet.Add(s.Name)).ToList();
             var idToName = itemDb.ToDictionary(r => r.Id, r => r.Name!);
-            var nameToId = itemDb.ToDictionary(r => r.Name!, r => r.Id);
 
             var recipeLevelTable = ParseCSV<RecipeLevelTableCSV>(Path.Combine(RootDirectory, @"Data\RecipeLevelTable.csv")).ToDictionary(r => r.ID, r => r);
 
             var uniqueRecipeSet = new HashSet<int>(); // some items have multiple recipes (e.g. ARM & BSM)
             var recipes = ParseCSV<RecipeCSV>(Path.Combine(RootDirectory, @"Data\Recipe.csv")).Select(r => r.Convert(recipeLevelTable)).Where(r => r != null && uniqueRecipeSet.Add(r.ResultID))!.ToList<Recipe>();
-            var recipeSet = recipes.Select(r => r.ResultID).ToHashSet();
             // var recipeDict = recipes.ToDictionary(r => r.ResultID);
 
             Console.WriteLine("Loading files");

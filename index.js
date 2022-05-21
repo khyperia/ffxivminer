@@ -24,8 +24,7 @@ function computeCost(marketEntry) {
         for (let ingredient of recipe.ingredients) {
             if (!(ingredient.id in marketMap)) {
                 // e.g. "Haddock" is not on marketboard. Assume zero I guess?
-            }
-            else {
+            } else {
                 let ingCost = computeCost(marketMap[ingredient.id]);
                 craftCost += ingCost * ingredient.amount;
             }
@@ -44,11 +43,11 @@ function dumpHtml(marketEntry, amount) {
     let generatedHtml = "";
     if (amount == 1) {
         generatedHtml += marketEntry.name;
-    }
-    else {
+    } else {
         generatedHtml += Number(amount.toFixed(2)) + "x " + marketEntry.name;
     }
     generatedHtml += " - <a href=\"https://universalis.app/market/" + marketEntry.id + "\">open in universalis</a>";
+    generatedHtml += " - <a href=\"item.html#" + marketEntry.id + "\">open in khy's item tool</a>";
     generatedHtml += "<ul>";
     generatedHtml += "<li>1x costs " + marketEntry.medianppu + " on marketboard</li>";
     if (marketEntry.craftCost) {
@@ -61,8 +60,7 @@ function dumpHtml(marketEntry, amount) {
             generatedHtml += "<li>Ingredient: ";
             if (!(ingredient.id in marketMap)) {
                 generatedHtml += ingredient.name + " is not on the marketboard";
-            }
-            else {
+            } else {
                 generatedHtml += dumpHtml(marketMap[ingredient.id], amount * ingredient.amount / recipe.resultamount);
             }
             generatedHtml += "</li>";
