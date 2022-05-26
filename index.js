@@ -3,11 +3,7 @@ let idtoname = {};
 for (let name in nametoid) {
     idtoname[nametoid[name]] = name;
 }
-let marketMap = {}
-for (let entry of globaldata.market) {
-    entry.name = idtoname[entry.id];
-    marketMap[entry.id] = entry;
-}
+globaldata.recipes.sort((a, b) => a.resultid - b.resultid);
 let recipesMap = {};
 for (let recipe of globaldata.recipes) {
     recipe.resultname = idtoname[recipe.resultid];
@@ -17,121 +13,216 @@ for (let recipe of globaldata.recipes) {
     recipesMap[recipe.resultid] = recipe;
 }
 
-function computeCost(marketEntry) {
-    if (marketEntry.id in recipesMap) {
-        let recipe = recipesMap[marketEntry.id];
-        let craftCost = 0;
-        for (let ingredient of recipe.ingredients) {
-            if (!(ingredient.id in marketMap)) {
-                // e.g. "Haddock" is not on marketboard. Assume zero I guess?
-            } else {
-                let ingCost = computeCost(marketMap[ingredient.id]);
-                craftCost += ingCost * ingredient.amount;
-            }
-        }
-        marketEntry.craftCost = craftCost / recipe.resultamount;
-        return Math.min(marketEntry.craftCost, marketEntry.medianppu);
+let universalisCache = {}
+let universalisCacheNeeded = []
+
+function getUniversalis(id) {
+    if (id in universalisCache) {
+        return universalisCache[id];
+    } else if (!universalisCacheNeeded.includes(id)) {
+        universalisCacheNeeded.push(id);
+        universalisCacheNeeded.sort((a, b) => a - b);
     }
-    return marketEntry.medianppu;
+    return null;
 }
 
-for (let entry of globaldata.market) {
-    computeCost(entry);
+function parseUniversalis(data) {
+    console.log(data);
+    if (data.items) {
+        for (let item of data.items) {
+            universalisCache[item.itemID] = item;
+        }
+    } else if (data.itemID) {
+        universalisCache[data.itemID] = data;
+    } else {
+        console.log("Could not parse universalis response??");
+    }
 }
 
-function dumpHtml(marketEntry, amount) {
+function fetchUniversalisCacheNeeded() {
+    if (universalisCacheNeeded.length > 0) {
+        fetch("https://universalis.app/api/Shiva/" + universalisCacheNeeded.join() + "?listings=0&entries=0", {mode: 'cors'})
+            .then(response => response.json())
+            .then(data => {
+                parseUniversalis(data);
+                item();
+            });
+    }
+    universalisCacheNeeded = [];
+}
+
+function price(id) {
+    return getUniversalis(id)?.minPrice || NaN;
+}
+
+function velocity(id) {
+    return getUniversalis(id)?.regularSaleVelocity || NaN;
+}
+
+// heck it, who needs runtime complexity
+function craftingPrice(recipe, isChild) {
+    let sum = 0;
+    for (let ingredient of recipe.ingredients) {
+        if (ingredient.id in recipesMap) {
+            sum += craftingPrice(recipesMap[ingredient.id]) * ingredient.amount;
+        } else {
+            sum += price(ingredient.id) * ingredient.amount;
+        }
+    }
+    let priceViaCrafting = sum / recipe.resultamount;
+    if (!isChild) {
+        return sum / recipe.resultamount;
+    }
+    let priceViaBuying = price(recipe.resultid);
+    if (isNaN(priceViaCrafting)) {
+        return priceViaBuying;
+    } else if (isNaN(priceViaBuying)) {
+        return priceViaCrafting;
+    } else if (priceViaBuying < priceViaCrafting) {
+        return priceViaBuying;
+    } else {
+        return priceViaCrafting;
+    }
+}
+
+function priceString(cost, craftingCost) {
+    if (isNaN(cost)) {
+        if (isNaN(craftingCost)) {
+            //return " [unknown marketboard and crafting cost]";
+            return "";
+        } else if (craftingCost != 0) {
+            return " 1x costs " + Number(craftingCost.toFixed(2)) + " to craft [unknown marketboard cost]";
+        } else {
+            //return " [unknown marketboard cost]";
+            return "";
+        }
+    } else {
+        if (isNaN(craftingCost)) {
+            return " 1x costs " + Number(cost.toFixed(2)) + " to buy [unknown crafting cost]";
+        } else if (craftingCost != 0) {
+            return " 1x costs " + Number(cost.toFixed(2)) + " to buy, " + Number(craftingCost.toFixed(2)) + " to craft (" + Number((cost / craftingCost).toFixed(2)) + "x ROI)";
+        } else {
+            return " 1x costs " + Number(cost.toFixed(2)) + " to buy";
+        }
+    }
+}
+
+function recipeHeader(id, amount) {
+    let name = idtoname[id];
     let generatedHtml = "";
     if (amount == 1) {
-        generatedHtml += marketEntry.name;
+        generatedHtml += name;
     } else {
-        generatedHtml += Number(amount.toFixed(2)) + "x " + marketEntry.name;
+        generatedHtml += Number(amount.toFixed(2)) + "x " + name;
     }
-    generatedHtml += " - <a href=\"https://universalis.app/market/" + marketEntry.id + "\">open in universalis</a>";
-    generatedHtml += " - <a href=\"item.html#" + marketEntry.id + "\">open in khy's item tool</a>";
+    generatedHtml += " - <a href=\"https://universalis.app/market/" + id + "\">open in universalis</a>";
+    return generatedHtml;
+}
+
+function renderRecipeStep(id, amount) {
+    let generatedHtml = recipeHeader(id, amount);
     generatedHtml += "<ul>";
-    generatedHtml += "<li>1x costs " + marketEntry.medianppu + " on marketboard</li>";
-    if (marketEntry.craftCost) {
-        generatedHtml += "<li>1x costs " + Number(marketEntry.craftCost.toFixed(2)) + " to craft (" + Number((marketEntry.medianppu / marketEntry.craftCost).toFixed(2)) + "x ROI)</li>";
-    }
-    generatedHtml += "<li>sells " + Number(marketEntry.itemsperday.toFixed(2)) + " items/day for a flux of " + Number((marketEntry.medianppu * marketEntry.itemsperday).toFixed(2)) + "</li>";
-    if (marketEntry.id in recipesMap) {
-        let recipe = recipesMap[marketEntry.id];
+    let cost = price(id);
+    if (id in recipesMap) {
+        let recipe = recipesMap[id];
+        if (amount / recipe.resultamount != 1 && recipe.resultamount != 1) {
+            generatedHtml += `<li>craft ${Number((amount / recipe.resultamount).toFixed(2))}x ()</li>`;
+        }
+        generatedHtml += `<li>crafting level ${recipe.level}</li>`
+        let craftingCost = craftingPrice(recipe);
+        let priceStr = priceString(cost, craftingCost);
+        if (priceStr) {
+            generatedHtml += "<li>" + priceStr + "</li>";
+        }
+        let vel = velocity(id);
+        if (vel) {
+            generatedHtml += "<li>sells " + Number(vel.toFixed(2)) + " items/day, for a market flux of " + Number((vel * cost).toFixed(2)) + " and profit flux of " + Number((vel * (cost - craftingCost)).toFixed(2)) + "</li>";
+        }
         for (let ingredient of recipe.ingredients) {
             generatedHtml += "<li>Ingredient: ";
-            if (!(ingredient.id in marketMap)) {
-                generatedHtml += ingredient.name + " is not on the marketboard";
-            } else {
-                generatedHtml += dumpHtml(marketMap[ingredient.id], amount * ingredient.amount / recipe.resultamount);
-            }
+            let ingAmount = amount * ingredient.amount / recipe.resultamount;
+            generatedHtml += renderRecipeStep(ingredient.id, ingAmount);
             generatedHtml += "</li>";
+        }
+    } else {
+        let priceStr = priceString(cost, 0);
+        if (priceStr) {
+            generatedHtml += "<li>" + priceStr + "</li>";
         }
     }
     generatedHtml += "</ul>";
     return generatedHtml;
 }
 
-function compareMarketEntry(left, right) {
-    var leftProfitFlux = (left.medianppu - left.craftCost) * left.itemsperday;
-    var rightProfitFlux = (right.medianppu - right.craftCost) * right.itemsperday;
-    return rightProfitFlux - leftProfitFlux;
+function showCrystals(recipe) {
+    let generatedHtml = "";
+    for (let id = 2; id < 20; id++) {
+        let cost = price(id);
+        let costString = "[no price]";
+        if (!isNaN(cost)) {
+            costString = cost;
+        }
+        generatedHtml += `${idtoname[id]} - ${costString} - <a href=\"https://universalis.app/market/${id}\">open in universalis</a><br/>`;
+    }
+    if (universalisCacheNeeded.length > 0) {
+        let button = "<button onclick='fetchUniversalisCacheNeeded()'>Fetch costs from universalis</button> (please don't spam this, it hits universalis' API)<br/>";
+        generatedHtml = button + generatedHtml;
+    }
+    let back = "<a href=\"#\" onclick=\"item()\">Back to item list</a><br/>\n";
+    generatedHtml = back + generatedHtml;
+    let node = document.getElementById("generated-content");
+    node.innerHTML = generatedHtml;
 }
 
-function render() {
-    let search = document.getElementById("search").value;
-    let minlevel = document.getElementById("minlevel").value;
-    minlevel = minlevel ? Number(minlevel) : 0;
-    let maxlevel = document.getElementById("maxlevel").value;
-    maxlevel = maxlevel ? Number(maxlevel) : Number.MAX_VALUE;
-    let minitemsday = document.getElementById("minitemsday").value;
-    minitemsday = minitemsday ? Number(minitemsday) : 0;
-    let maxitemsday = document.getElementById("maxitemsday").value;
-    maxitemsday = maxitemsday ? Number(maxitemsday) : Number.MAX_VALUE;
-    let mincost = document.getElementById("mincost").value;
-    mincost = mincost ? Number(mincost) : 0;
-    let minroi = document.getElementById("minroi").value;
-    minroi = minroi ? Number(minroi) : 0;
-
-    let displayMarket = [];
-    for (let entry of globaldata.market) {
-        if (!entry.craftCost) {
-            continue;
-        }
-        if (search) {
-            if (!entry.name.toLowerCase().includes(search.toLowerCase())) {
-                continue;
-            }
-        }
-        if (entry.id in recipesMap) {
-            let recipe = recipesMap[entry.id];
-            if (recipe.level < minlevel || recipe.level > maxlevel) {
-                continue;
-            }
-        }
-        if (entry.itemsperday < minitemsday || entry.itemsperday > maxitemsday) {
-            continue;
-        }
-        if (entry.medianppu < mincost) {
-            continue;
-        }
-        let roi = entry.medianppu / entry.craftCost;
-        if (roi < minroi) {
-            continue;
-        }
-        if (entry.craftCost) {
-            displayMarket.push(entry);
-        }
-    }
-
-    displayMarket.sort(compareMarketEntry);
-
-    let i = 0;
+function showRecipe(recipe) {
+    universalisCacheNeeded = [];
     let generatedHtml = "";
-    for (let entry of displayMarket) {
-        if (i++ == 100) {
-            break;
-        }
-        generatedHtml += dumpHtml(entry, 1);
+    generatedHtml += renderRecipeStep(recipe.resultid, 1);
+    if (universalisCacheNeeded.length > 0) {
+        let button = "<button onclick='fetchUniversalisCacheNeeded()'>Fetch costs from universalis</button> (please don't spam this, it hits universalis' API)<br/>";
+        generatedHtml = button + generatedHtml;
+    }
+    let back = "<a href=\"#\" onclick=\"item()\">Back to item list</a><br/>\n";
+    generatedHtml = back + generatedHtml;
+    let node = document.getElementById("generated-content");
+    node.innerHTML = generatedHtml;
+}
+
+function showAllRecipes() {
+    let generatedHtml = "";
+    generatedHtml += "<a href=\"#crystals\" onclick=\"item()\">Show all crafting crystals</a><br/>\n";
+    for (let recipe of globaldata.recipes) {
+        generatedHtml += "<a href=\"#" + recipe.resultname + "\" onclick=\"item()\">" + recipe.resultname + "</a><br/>\n";
     }
     let node = document.getElementById("generated-content");
     node.innerHTML = generatedHtml;
+}
+
+window.onhashchange = event => item();
+
+function item() {
+    let hash = window.location.hash;
+    if (hash.startsWith("#")) {
+        hash = hash.substring(1);
+    }
+    hash = decodeURIComponent(hash);
+    if (hash == "crystals") {
+        showCrystals();
+        return;
+    }
+    for (let recipe of globaldata.recipes) {
+        if (recipe.resultname == hash || recipe.resultid == hash) {
+            showRecipe(recipe);
+            return;
+        }
+    }
+    if (hash != "") {
+        for (let recipe of globaldata.recipes) {
+            if (recipe.resultname.toLowerCase().includes(hash.toLowerCase())) {
+                showRecipe(recipe);
+                return;
+            }
+        }
+    }
+    showAllRecipes();
 }
