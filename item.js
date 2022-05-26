@@ -153,6 +153,26 @@ function renderRecipeStep(id, amount) {
     return generatedHtml;
 }
 
+function showCrystals(recipe) {
+    let generatedHtml = "";
+    for(let id = 2; id < 20; id++) {
+        let cost = price(id);
+        let costString = "[no price]";
+        if (!isNaN(cost)) {
+            costString = cost;
+        }
+        generatedHtml += `${idtoname[id]} - ${costString} - <a href=\"https://universalis.app/market/${id}\">open in universalis</a><br/>`;
+    }
+    if (universalisCacheNeeded.length > 0) {
+        let button = "<button onclick='fetchUniversalisCacheNeeded()'>Fetch costs from universalis</button> (please don't spam this, it hits universalis' API)<br/>";
+        generatedHtml = button + generatedHtml;
+    }
+    let back = "<a href=\"#\" onclick=\"item()\">Back to item list</a><br/>\n";
+    generatedHtml = back + generatedHtml;
+    let node = document.getElementById("generated-content");
+    node.innerHTML = generatedHtml;
+}
+
 function showRecipe(recipe) {
     universalisCacheNeeded = [];
     let generatedHtml = "";
@@ -169,6 +189,7 @@ function showRecipe(recipe) {
 
 function showAllRecipes() {
     let generatedHtml = "";
+    generatedHtml += "<a href=\"#crystals\" onclick=\"item()\">Show all crafting crystals</a><br/>\n";
     for (let recipe of globaldata.recipes) {
         generatedHtml += "<a href=\"#" + recipe.resultname + "\" onclick=\"item()\">" + recipe.resultname + "</a><br/>\n";
     }
@@ -184,6 +205,10 @@ function item() {
         hash = hash.substring(1);
     }
     hash = decodeURIComponent(hash);
+    if(hash == "crystals"){
+        showCrystals();
+        return;
+    }
     for (let recipe of globaldata.recipes) {
         if (recipe.resultname == hash || recipe.resultid == hash) {
             showRecipe(recipe);
