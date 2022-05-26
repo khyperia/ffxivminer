@@ -40,8 +40,9 @@ function parseUniversalis(data) {
 }
 
 function fetchUniversalisCacheNeeded() {
+    let server = document.getElementById("server").value || "Shiva";
     if (universalisCacheNeeded.length > 0) {
-        fetch("https://universalis.app/api/Shiva/" + universalisCacheNeeded.join() + "?listings=0&entries=0", {mode: 'cors'})
+        fetch(`https://universalis.app/api/${server}/${universalisCacheNeeded.join()}?listings=0&entries=0`, {mode: 'cors'})
             .then(response => response.json())
             .then(data => {
                 parseUniversalis(data);
