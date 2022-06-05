@@ -13,6 +13,38 @@ for (let recipe of globaldata.recipes) {
     recipesMap[recipe.resultid] = recipe;
 }
 
+// could pull from WorldDCGroupType.csv but meh
+globaldata.worlds.push(
+    "Aether",
+    "Chaos",
+    "Crystal",
+    "Elemental",
+    "Gaia",
+    "Light",
+    "Mana",
+    "Materia",
+    "Meteor",
+    "Primal"
+);
+
+function genServers() {
+    let generatedHtml = "Server: <select id=\"server\" onchange='bwah()'>";
+    for (let serv of globaldata.worlds) {
+        if (serv == "Shiva") {
+            generatedHtml += `<option value="${serv}" selected="selected">${serv}</option>`;
+        } else {
+            generatedHtml += `<option value="${serv}">${serv}</option>`;
+        }
+    }
+    generatedHtml += "</select>";
+    let node = document.getElementById("worldlist");
+    node.innerHTML = generatedHtml;
+}
+
+function bwah() {
+    item();
+}
+
 function removeItem(arr, value) {
     let index = arr.indexOf(value);
     if (index > -1) {
@@ -30,16 +62,21 @@ class UniversalisServerCache {
         this.history = history;
         this.cache = {};
         this.needed = [];
+        this.unresolved = [];
     }
 
     get(id) {
         if (id in this.cache) {
             return this.cache[id];
-        } else if (!this.needed.includes(id)) {
+        } else if (!this.needed.includes(id) && !this.unresolved.includes(id)) {
             this.needed.push(id);
             this.needed.sort((a, b) => a - b);
         }
         return null;
+    }
+
+    clearNeeded() {
+        this.needed = [];
     }
 
     fetchNeeded() {
@@ -48,9 +85,14 @@ class UniversalisServerCache {
 
     fetch() {
         if (this.needed.length > 0) {
+            let needed = [...this.needed];
+            if (needed.length > 100) {
+                needed = needed.slice(0, 100);
+            }
             let url = this.history ?
-                `https://universalis.app/api/history/${this.server}/${this.needed.join()}` :
-                `https://universalis.app/api/${this.server}/${this.needed.join()}?listings=0&entries=0`;
+                `https://universalis.app/api/history/${this.server}/${needed.join()}?entries=100` :
+                `https://universalis.app/api/${this.server}/${needed.join()}?listings=0&entries=0`;
+            console.log("Request: " + url);
             fetch(url, {mode: 'cors'})
                 .then(response => response.json())
                 .then(data => {
@@ -66,6 +108,12 @@ class UniversalisServerCache {
             for (let item of data.items) {
                 removeItem(this.needed, item.itemID);
                 this.cache[item.itemID] = item;
+            }
+            for (let item of data.unresolvedItems) {
+                removeItem(this.needed, item);
+                if (!this.unresolved.includes(item)) {
+                    this.unresolved.push(item);
+                }
             }
         } else if (data.itemID) {
             removeItem(this.needed, item.itemID);
@@ -83,11 +131,17 @@ class UniversalisCache {
     }
 
     get(id, server) {
-        server = server || document.getElementById("server").value || "Shiva";
+        server = server || document.getElementById("server")?.value || "Shiva";
         if (!(server in this.servers)) {
             this.servers[server] = new UniversalisServerCache(server, this.history);
         }
         return this.servers[server].get(id);
+    }
+
+    clearNeeded() {
+        for (let server in this.servers) {
+            this.servers[server].clearNeeded();
+        }
     }
 
     fetchNeeded() {
@@ -123,6 +177,20 @@ function velocity(id, server) {
 
 function velocityHQ(id, server) {
     return universalis.get(id, server)?.hqSaleVelocity || NaN;
+}
+
+function priceHistory(id, server) {
+    let hist = universalisHistory.get(id, server);
+    if (hist === null) {
+        return NaN;
+    }
+    let sum = 0;
+    let quantity = 0;
+    for (let entry of hist.entries) {
+        quantity += entry.quantity;
+        sum += entry.pricePerUnit * entry.quantity;
+    }
+    return sum / quantity;
 }
 
 function velocityHistory(id, server, hq) {
@@ -242,7 +310,7 @@ function renderRecipeStep(id, amount, history) {
         if (vel) {
             generatedHtml += ` - ${tostr(vel)} items/day`;
             if (cost) {
-                generatedHtml += `- flux ${tostr(vel * cost)}`;
+                generatedHtml += ` - flux ${tostr(vel * cost)}`;
             }
         }
         generatedHtml += "<br/>";
@@ -293,6 +361,30 @@ function arbitrage() {
     });
 }
 
+function gathering() {
+    showWrapper(() => {
+        let things = [];
+        let count = 0;
+        for (let item of globaldata.gathering) {
+            if (item in idtoname && !idtoname[item].includes("kybuild") && !idtoname[item].includes("Rarefied")) {
+                things.push({
+                    item: item,
+                    vel: velocityHistory(item),
+                    price: priceHistory(item),
+                });
+                count++;
+            }
+        }
+        things.sort((a, b) => b.price * b.vel - a.price * a.vel);
+        let generatedHtml = "";
+        for (let thing of things) {
+            generatedHtml += `${idtoname[thing.item]} - price ${tostr(thing.price)} - velocity ${tostr(thing.vel)} - flux ${tostr(thing.price * thing.vel)}<br/>`;
+        }
+        generatedHtml += `there are ${count} gatherables<br/>`;
+        return generatedHtml;
+    });
+}
+
 function fetchTheStuff() {
     universalis.fetch();
     universalisHistory.fetch();
@@ -313,6 +405,7 @@ function showWrapper(action) {
 function showAllRecipes() {
     let generatedHtml = "";
     generatedHtml += "<a href=\"#crystals\" onclick=\"item()\">Show all crafting crystals</a><br/>\n";
+    generatedHtml += "<a href=\"#gathering\" onclick=\"item()\">Show gatherable items</a><br/>\n";
     for (let recipe of globaldata.recipes) {
         generatedHtml += "<a href=\"#" + recipe.resultname + "\" onclick=\"item()\">" + recipe.resultname + "</a><br/>\n";
     }
@@ -328,12 +421,18 @@ function item() {
         hash = hash.substring(1);
     }
     hash = decodeURIComponent(hash);
+    universalis.clearNeeded();
+    universalisHistory.clearNeeded();
     if (hash == "crystals") {
         showCrystals();
         return;
     }
     if (hash == "arbitrage") {
         arbitrage();
+        return;
+    }
+    if (hash == "gathering") {
+        gathering();
         return;
     }
     for (let recipe of globaldata.recipes) {
