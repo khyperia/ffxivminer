@@ -22,3 +22,5 @@ Take these files and copy them into the Data folder in the root of this project:
     RecipeLevelTable.csv
 
 Alternatively, download the same files from [github.com/xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining).
+
+Also, need to download [this file](https://raw.githubusercontent.com/ffxiv-teamcraft/ffxiv-teamcraft/master/apps/client/src/assets/data/nodes.json) to the data folder as well.

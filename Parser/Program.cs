@@ -70,8 +70,9 @@ namespace Parser
                     .Select(r => r.ExportJson(recipeLevelTable))
                     .Where(r => r != null && uniqueRecipeSet.Add(r["resultid"])));
 
-            var gatheringItem = new JsonArray(ParseCSV<GatheringItemCSV>(@"Data\GatheringItem.csv")
-                .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => (int) j));
+            // var gatheringItem = new JsonArray(ParseCSV<GatheringItemCSV>(@"Data\GatheringItem.csv")
+            //     .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => (int) j));
+            var gatheringItem = GetGatheringItem();
 
             var worlds = new JsonArray(ParseCSV<WorldCSV>(@"Data\World.csv")
                 .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => (string) j));
@@ -101,6 +102,27 @@ namespace Parser
             }
 
             Console.WriteLine("Done");
+        }
+
+        private static JsonValue GetGatheringItem()
+        {
+            var nodes = (JsonObject) JsonValue.Parse(File.ReadAllText(Path.Combine(RootDirectory, @"Data\nodes.json")));
+            var result = new Dictionary<int, bool>();
+            foreach (var entry in nodes.Values)
+            {
+                if (entry.ContainsKey("map") && (int) entry["map"] == 0) continue;
+                bool limited = entry.ContainsKey("limited") ? entry["limited"] : false;
+                foreach (JsonPrimitive item in entry["items"])
+                {
+                    if (!result.TryGetValue(item, out var existing) || existing)
+                    {
+                        result[item] = limited;
+                    }
+                }
+            }
+
+            return new JsonObject(result.OrderBy(kvp => kvp.Key)
+                .Select(kvp => new KeyValuePair<string, JsonValue>(kvp.Key.ToString(), kvp.Value)));
         }
     }
 }

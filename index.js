@@ -66,6 +66,9 @@ class UniversalisServerCache {
     }
 
     get(id) {
+        if (typeof (id) != "number") {
+            throw "haha what did you do";
+        }
         if (id in this.cache) {
             return this.cache[id];
         } else if (!this.needed.includes(id) && !this.unresolved.includes(id)) {
@@ -365,20 +368,36 @@ function gathering() {
     showWrapper(() => {
         let things = [];
         let count = 0;
-        for (let item of globaldata.gathering) {
+        for (let item in globaldata.gathering) {
+            item = +item;
             if (item in idtoname && !idtoname[item].includes("kybuild") && !idtoname[item].includes("Rarefied")) {
                 things.push({
                     item: item,
                     vel: velocityHistory(item),
                     price: priceHistory(item),
+                    limited: globaldata.gathering[item],
                 });
                 count++;
             }
         }
-        things.sort((a, b) => b.price * b.vel - a.price * a.vel);
+        things.sort((a, b) => {
+            a = a.price * a.vel;
+            b = b.price * b.vel;
+            if (!isFinite(a) && !isFinite(b)) {
+                return 0;
+            }
+            if (!isFinite(a)) {
+                return 1;
+            }
+            if (!isFinite(b)) {
+                return -1;
+            }
+            return b - a;
+        });
         let generatedHtml = "";
         for (let thing of things) {
-            generatedHtml += `${idtoname[thing.item]} - price ${tostr(thing.price)} - velocity ${tostr(thing.vel)} - flux ${tostr(thing.price * thing.vel)}<br/>`;
+            let name = thing.limited ? `<span style="color:#880000">${idtoname[thing.item]}</span>` : `<span style="color:#008800">${idtoname[thing.item]}</span>`;
+            generatedHtml += `${name} - price ${tostr(thing.price)} - velocity ${tostr(thing.vel)} - flux ${tostr(thing.price * thing.vel)}<br/>`;
         }
         generatedHtml += `there are ${count} gatherables<br/>`;
         return generatedHtml;
