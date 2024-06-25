@@ -1,12 +1,12 @@
 using CsvHelper.Configuration.Attributes;
 using System.Collections.Generic;
-using System.Json;
+using System.Text.Json.Nodes;
 
 namespace Parser;
 
 internal class RecipeCSV
 {
-    public JsonObject? ExportJson(Dictionary<int, RecipeLevelTableCSV> recipeLevelTable)
+    public JsonNode? ExportJson(Dictionary<int, RecipeLevelTableCSV> recipeLevelTable)
     {
         if (ItemResult <= 0)
         {
@@ -42,7 +42,7 @@ internal class RecipeCSV
         var recipeLevelTableEntry = recipeLevelTable[RecipeLevelTable];
         var level = recipeLevelTableEntry.ClassJobLevel;
 
-        return new()
+        return new JsonObject()
         {
             {"resultid", ItemResult},
             {"resultamount", AmountResult},

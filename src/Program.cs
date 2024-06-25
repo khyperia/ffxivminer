@@ -1,10 +1,10 @@
 using CsvHelper;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -58,7 +58,7 @@ namespace Parser
             var uniqueNameSet = new HashSet<string>();
             var nameToId = new JsonObject(ParseCSV<ItemCSV>(@"Data\Item.csv")
                 .Where(s => !string.IsNullOrWhiteSpace(s.Name) && uniqueNameSet.Add(s.Name))
-                .Select(s => new KeyValuePair<string, JsonValue>(s.Name!, s.Id)));
+                .Select(s => new KeyValuePair<string, JsonNode?>(s.Name!, s.Id)));
 
             var recipeLevelTable =
                 ParseCSV<RecipeLevelTableCSV>(@"Data\RecipeLevelTable.csv")
@@ -68,61 +68,67 @@ namespace Parser
             var recipes =
                 new JsonArray(ParseCSV<RecipeCSV>(@"Data\Recipe.csv")
                     .Select(r => r.ExportJson(recipeLevelTable))
-                    .Where(r => r != null && uniqueRecipeSet.Add(r["resultid"])));
+                    .Where(r => r != null && uniqueRecipeSet.Add(r["resultid"].GetValue<int>()))
+                    .ToArray());
 
             // var gatheringItem = new JsonArray(ParseCSV<GatheringItemCSV>(@"Data\GatheringItem.csv")
             //     .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => (int) j));
             var gatheringItem = GetGatheringItem();
 
             var worlds = new JsonArray(ParseCSV<WorldCSV>(@"Data\World.csv")
-                .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => (string) j));
+                .Select(csv => csv.ExportJson()).Where(j => j != null).OrderBy(j => j.GetValue<string>()).ToArray());
 
             Console.WriteLine("Exporting");
 
             {
                 var export = new JsonObject
                 {
-                    {"nametoid", nameToId},
-                    {"recipes", recipes},
-                    {"gathering", gatheringItem},
-                    {"worlds", worlds},
+                    { "nametoid", nameToId },
+                    { "recipes", recipes },
+                    { "gathering", gatheringItem },
+                    { "worlds", worlds },
                 };
 
                 Console.WriteLine("Writing result");
-                var writerJson = new StreamWriter(Path.Combine(RootDirectory, @"Data\data.json"));
-                export.Save(writerJson);
-                writerJson.Flush();
-                var writerJs = new StreamWriter(Path.Combine(RootDirectory, @"data.js"));
-                writerJs.Write("var globaldata = "); // :)
-                export.Save(writerJs);
-                writerJs.Flush();
-                Process.Start(new ProcessStartInfo("cmd.exe",
-                        "/C \"jq < Data\\data.json > Data\\data_formatted.json\"")
-                    {WorkingDirectory = RootDirectory})!.WaitForExit();
+                {
+                    using var writerJson =
+                        new Utf8JsonWriter(File.Create(Path.Combine(RootDirectory, @"Data\data_formatted.json")),
+                            new() { Indented = true });
+                    export.WriteTo(writerJson);
+                }
+                {
+                    using var stream = File.Create(Path.Combine(RootDirectory, "data.js"));
+                    var streamWriter = new StreamWriter(stream);
+                    streamWriter.Write("var globaldata = "); // :)
+                    streamWriter.Flush();
+                    using var writerJs = new Utf8JsonWriter(stream, new() { Indented = false });
+                    export.WriteTo(writerJs);
+                }
             }
 
             Console.WriteLine("Done");
         }
 
-        private static JsonValue GetGatheringItem()
+        private static JsonNode GetGatheringItem()
         {
-            var nodes = (JsonObject) JsonValue.Parse(File.ReadAllText(Path.Combine(RootDirectory, @"Data\nodes.json")));
+            var nodes = (JsonObject?)JsonNode.Parse(File.ReadAllText(Path.Combine(RootDirectory, @"Data\nodes.json")));
             var result = new Dictionary<int, bool>();
-            foreach (var entry in nodes.Values)
+            foreach (var (_, node) in nodes)
             {
-                if (entry.ContainsKey("map") && (int) entry["map"] == 0) continue;
-                bool limited = entry.ContainsKey("limited") ? entry["limited"] : false;
-                foreach (JsonPrimitive item in entry["items"])
+                var entry = node.AsObject();
+                if (entry.ContainsKey("map") && entry["map"].GetValue<int>() == 0) continue;
+                bool limited = entry.ContainsKey("limited") ? entry["limited"].GetValue<bool>() : false;
+                foreach (var item in entry["items"].AsArray())
                 {
-                    if (!result.TryGetValue(item, out var existing) || existing)
+                    if (!result.TryGetValue(item.GetValue<int>(), out var existing) || existing)
                     {
-                        result[item] = limited;
+                        result[item.GetValue<int>()] = limited;
                     }
                 }
             }
 
             return new JsonObject(result.OrderBy(kvp => kvp.Key)
-                .Select(kvp => new KeyValuePair<string, JsonValue>(kvp.Key.ToString(), kvp.Value)));
+                .Select(kvp => new KeyValuePair<string, JsonNode?>(kvp.Key.ToString(), kvp.Value)));
         }
     }
 }

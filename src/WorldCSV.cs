@@ -1,10 +1,10 @@
-using System.Json;
+using System.Text.Json.Nodes;
 
 namespace Parser;
 
 internal class WorldCSV
 {
-    public JsonValue? ExportJson()
+    public JsonNode? ExportJson()
     {
         if (string.IsNullOrWhiteSpace(Name) || !IsPublic)
         {

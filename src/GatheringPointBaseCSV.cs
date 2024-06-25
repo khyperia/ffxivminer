@@ -1,4 +1,4 @@
-using System.Json;
+using System.Text.Json.Nodes;
 
 namespace Parser;
 
@@ -6,7 +6,7 @@ internal class GatheringItemCSV
 {
     public int Item { get; set; }
 
-    public JsonValue? ExportJson()
+    public JsonNode? ExportJson()
     {
         if (Item == 0)
         {
