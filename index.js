@@ -18,13 +18,15 @@ globaldata.worlds.push(
     "Aether",
     "Chaos",
     "Crystal",
+    "Dynamis",
     "Elemental",
     "Gaia",
     "Light",
     "Mana",
     "Materia",
     "Meteor",
-    "Primal"
+    "Primal",
+    "Shadow"
 );
 
 function genServers() {
@@ -351,6 +353,7 @@ function arbitrage() {
     showWrapper(() => {
         let things = [];
         for (let id in idtoname) {
+            id |= 0;
             let name = idtoname[id];
             if (name.startsWith("Classical ")) {
                 let server = priceHQ(id);
@@ -405,8 +408,10 @@ function gathering() {
             return b - a;
         });
         let generatedHtml = "";
+        generatedHtml += "<br/><span style=\"color:#008800\">Green</span> is unlimited, <span style=\"color:#880000\">red</span> is limited (timed node)<br/><br/>";
         for (let thing of things) {
-            let name = thing.limited ? `<span style="color:#880000">${idtoname[thing.item]}</span>` : `<span style="color:#008800">${idtoname[thing.item]}</span>`;
+            let color = thing.limited ? "#880000" : "#008800";
+            let name = `<span style="color:${color}">${idtoname[thing.item]}</span>`;
             generatedHtml += `${name} - price ${tostr(thing.price)} - velocity ${tostr(thing.vel)} - flux ${tostr(thing.price * thing.vel)}<br/>`;
         }
         generatedHtml += `there are ${count} gatherables<br/>`;
