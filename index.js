@@ -29,8 +29,16 @@ globaldata.worlds.push(
 
 function genServers() {
     let generatedHtml = "Server: <select id=\"server\" onchange='bwah()'>";
+    let selected = "";
+    try {
+        selected = localStorage.getItem("selectedServer");
+    } catch (e) {
+        console.log("Unable to fetch from localStorage: " + e)
+    }
+    if (!globaldata.worlds.includes(selected))
+        selected = "Odin";
     for (let serv of globaldata.worlds) {
-        if (serv == "Shiva") {
+        if (serv === selected) {
             generatedHtml += `<option value="${serv}" selected="selected">${serv}</option>`;
         } else {
             generatedHtml += `<option value="${serv}">${serv}</option>`;
@@ -42,6 +50,8 @@ function genServers() {
 }
 
 function bwah() {
+    let selected = document.getElementById("server")?.value;
+    localStorage.setItem("selectedServer", selected);
     item();
 }
 
@@ -249,7 +259,7 @@ function priceString(cost, craftingCost) {
         if (isNaN(craftingCost)) {
             //return " [unknown marketboard and crafting cost]";
             return "";
-        } else if (craftingCost != 0) {
+        } else if (craftingCost !== 0) {
             return " 1x costs " + tostr(craftingCost) + " to craft [unknown marketboard cost]";
         } else {
             //return " [unknown marketboard cost]";
@@ -258,7 +268,7 @@ function priceString(cost, craftingCost) {
     } else {
         if (isNaN(craftingCost)) {
             return " 1x costs " + tostr(cost) + " to buy [unknown crafting cost]";
-        } else if (craftingCost != 0) {
+        } else if (craftingCost !== 0) {
             return " 1x costs " + tostr(cost) + " to buy, " + tostr(craftingCost) + " to craft (" + tostr((cost / craftingCost)) + "x ROI)";
         } else {
             return " 1x costs " + tostr(cost) + " to buy";
@@ -269,7 +279,7 @@ function priceString(cost, craftingCost) {
 function recipeHeader(id, amount) {
     let name = idtoname[id];
     let generatedHtml = "";
-    if (amount == 1) {
+    if (amount === 1) {
         generatedHtml += name;
     } else {
         generatedHtml += tostr(amount) + "x " + name;
@@ -284,7 +294,7 @@ function renderRecipeStep(id, amount, history) {
     if (id in recipesMap) {
         generatedHtml += "<ul>";
         let recipe = recipesMap[id];
-        if (amount / recipe.resultamount != 1 && recipe.resultamount != 1) {
+        if (amount / recipe.resultamount !== 1 && recipe.resultamount !== 1) {
             generatedHtml += `<li>craft ${tostr((amount / recipe.resultamount))}x ()</li>`;
         }
         generatedHtml += `<li>crafting level ${recipe.level}</li>`
@@ -432,7 +442,7 @@ function showAllRecipes() {
     node.innerHTML = generatedHtml;
 }
 
-window.onhashchange = event => item();
+window.onhashchange = () => item();
 
 function item() {
     let hash = window.location.hash;
@@ -442,25 +452,25 @@ function item() {
     hash = decodeURIComponent(hash);
     universalis.clearNeeded();
     universalisHistory.clearNeeded();
-    if (hash == "crystals") {
+    if (hash === "crystals") {
         showCrystals();
         return;
     }
-    if (hash == "arbitrage") {
+    if (hash === "arbitrage") {
         arbitrage();
         return;
     }
-    if (hash == "gathering") {
+    if (hash === "gathering") {
         gathering();
         return;
     }
     for (let recipe of globaldata.recipes) {
-        if (recipe.resultname == hash || recipe.resultid == hash) {
+        if (recipe.resultname === hash || recipe.resultid === hash) {
             showRecipe(recipe);
             return;
         }
     }
-    if (hash != "") {
+    if (hash !== "") {
         for (let recipe of globaldata.recipes) {
             if (recipe.resultname.toLowerCase().includes(hash.toLowerCase())) {
                 showRecipe(recipe);
