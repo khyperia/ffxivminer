@@ -89,15 +89,15 @@ namespace Parser
                 };
 
                 Console.WriteLine("Writing result");
-                var writerJson = new StreamWriter(Path.Combine(RootDirectory, @"Data\recipes.json"));
+                var writerJson = new StreamWriter(Path.Combine(RootDirectory, @"Data\data.json"));
                 export.Save(writerJson);
                 writerJson.Flush();
-                var writerJs = new StreamWriter(Path.Combine(RootDirectory, @"recipes.js"));
+                var writerJs = new StreamWriter(Path.Combine(RootDirectory, @"data.js"));
                 writerJs.Write("var globaldata = "); // :)
                 export.Save(writerJs);
                 writerJs.Flush();
                 Process.Start(new ProcessStartInfo("cmd.exe",
-                        "/C \"jq < Data\\recipes.json > Data\\recipes_formatted.json\"")
+                        "/C \"jq < Data\\data.json > Data\\data_formatted.json\"")
                     {WorkingDirectory = RootDirectory})!.WaitForExit();
             }
 

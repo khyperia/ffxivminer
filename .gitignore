@@ -1,9 +1,6 @@
 /.vs/
 /.idea/
 /Data/
-/DownloadedData/
 bin/
 obj/
-packages/
 data.js
-recipes.js

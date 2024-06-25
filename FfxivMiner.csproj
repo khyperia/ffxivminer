@@ -2,16 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Downloader\**" />
-    <Compile Remove="SaintCoinach\**" />
-    <EmbeddedResource Remove="Downloader\**" />
-    <EmbeddedResource Remove="SaintCoinach\**" />
-    <None Remove="Downloader\**" />
-    <None Remove="SaintCoinach\**" />
+    <PackageReference Include="CsvHelper" Version="27.1.1" />
+    <PackageReference Include="System.Json" Version="4.7.1" />
   </ItemGroup>
 
 </Project>

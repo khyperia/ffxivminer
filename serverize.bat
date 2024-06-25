@@ -1,2 +1,2 @@
-scp index.html index.js recipes.js carbon:me/khyperia.com/ffxivminer/
-ssh -t carbon "cd me/khyperia.com && make install"
+scp index.html index.js data.js carbon:me/khyperia.com/ffxivminer/
+ssh -t carbon "cd me/khyperia.com && ./install.py"

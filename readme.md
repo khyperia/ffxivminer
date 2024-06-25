@@ -3,25 +3,13 @@ FfxivMiner
 
 This is very much some garbage I spewed out for myself and friends, but hey, if you find it interesting, neat I guess.
 
-Deployed version can be found [here](https://khyperia.com/ffxivminer/). The data is probably suuuper out of date, I have to manually export from [universalis.app](https://universalis.app/) and I might not have done that for a while.
+Deployed version can be found [here](https://khyperia.com/ffxivminer/). The data might be out of date, as I might 
+need to run `download.ps1` again and republish the site.
 
 ---
 
-How to export data:
+How to build and use this project:
 
-Download [SaintCoinach](https://github.com/xivapi/SaintCoinach/releases)
-
-    SaintCoinach.Cmd.exe "D:\Games\ffxiv\SquareEnix\FINAL FANTASY XIV - A Realm Reborn" rawexd
-
-(will take a while to run)
-
-Take these files and copy them into the Data folder in the root of this project:
-
-    Item.csv
-    Recipe.csv
-    RecipeLevelTable.csv
-    World.csv
-
-Alternatively, download the same files from [github.com/xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining).
-
-Also, need to download [this file](https://raw.githubusercontent.com/ffxiv-teamcraft/ffxiv-teamcraft/master/apps/client/src/assets/data/nodes.json) to the data folder as well.
+1) Run `download.ps1`. The data files it grabs can also be fetched from [SaintCoinach](https://github.com/xivapi/SaintCoinach/releases) from your local ffxiv install, but eh, if they're already published on github all nice-like, just download those.
+2) Run the C# project (`dotnet run`), which extracts and bundles the csvs/etc. download from download.ps1 into `data.js`
+3) (khyperia only) - run `serverize.bat` to publish index.html, index.js, and data.js to khyperia.com
