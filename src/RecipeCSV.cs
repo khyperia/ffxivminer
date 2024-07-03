@@ -36,8 +36,6 @@ internal class RecipeCSV
         AddIngredient(AmountIngredient5, ItemIngredient5);
         AddIngredient(AmountIngredient6, ItemIngredient6);
         AddIngredient(AmountIngredient7, ItemIngredient7);
-        AddIngredient(AmountIngredient8, ItemIngredient8);
-        AddIngredient(AmountIngredient9, ItemIngredient9);
 
         var recipeLevelTableEntry = recipeLevelTable[RecipeLevelTable];
         var level = recipeLevelTableEntry.ClassJobLevel;
@@ -78,10 +76,4 @@ internal class RecipeCSV
 
     [Name("Item{Ingredient}[7]")] public int ItemIngredient7 { get; set; }
     [Name("Amount{Ingredient}[7]")] public int AmountIngredient7 { get; set; }
-
-    [Name("Item{Ingredient}[8]")] public int ItemIngredient8 { get; set; }
-    [Name("Amount{Ingredient}[8]")] public int AmountIngredient8 { get; set; }
-
-    [Name("Item{Ingredient}[9]")] public int ItemIngredient9 { get; set; }
-    [Name("Amount{Ingredient}[9]")] public int AmountIngredient9 { get; set; }
 }

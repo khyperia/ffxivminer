@@ -6,15 +6,13 @@ internal class WorldCSV
 {
     public JsonNode? ExportJson()
     {
-        if (string.IsNullOrWhiteSpace(Name) || !IsPublic && !OverrideIsPublic)
+        if (string.IsNullOrWhiteSpace(Name) || !IsPublic)
         {
             return null;
         }
 
         return Name;
     }
-
-    private bool OverrideIsPublic => Name is "Cuchulainn" or "Kraken" or "Rafflesia" or "Golem";
 
     public string? Name { get; set; }
     public bool IsPublic { get; set; }

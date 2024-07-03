@@ -9,7 +9,6 @@ namespace Parser
         public int ClassJobLevel { get; set; }
         public int Stars { get; set; }
         public int SuggestedCraftsmanship { get; set; }
-        public int SuggestedControl { get; set; }
         public int Difficulty { get; set; }
         public int Quality { get; set; }
         public int ProgressDivider { get; set; }
