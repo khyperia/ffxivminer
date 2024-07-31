@@ -79,7 +79,7 @@ class UniversalisServerCache {
 
     get(id) {
         if (typeof (id) != "number") {
-            throw "haha what did you do";
+            throw "UniversalisServerCache called with not a number: " + id;
         }
         if (id in this.cache) {
             return this.cache[id];
@@ -178,12 +178,16 @@ class UniversalisCache {
 let universalis = new UniversalisCache(false);
 let universalisHistory = new UniversalisCache(true);
 
-function price(id, server) {
+function priceNQ(id, server) {
     return universalis.get(id, server)?.minPrice || NaN;
 }
 
 function priceHQ(id, server) {
     return universalis.get(id, server)?.minPriceHQ || NaN;
+}
+
+function price(id, hq, server) {
+    return hq ? priceHQ(id, server) : priceNQ(id, server);
 }
 
 function velocity(id, server) {
@@ -237,14 +241,14 @@ function craftingPrice(recipe, isChild) {
         if (ingredient.id in recipesMap) {
             sum += craftingPrice(recipesMap[ingredient.id]) * ingredient.amount;
         } else {
-            sum += price(ingredient.id) * ingredient.amount;
+            sum += priceNQ(ingredient.id) * ingredient.amount;
         }
     }
     let priceViaCrafting = sum / recipe.resultamount;
     if (!isChild) {
         return sum / recipe.resultamount;
     }
-    let priceViaBuying = price(recipe.resultid);
+    let priceViaBuying = priceNQ(recipe.resultid);
     if (isNaN(priceViaCrafting)) {
         return priceViaBuying;
     } else if (isNaN(priceViaBuying)) {
@@ -290,14 +294,14 @@ function recipeHeader(id, amount) {
     return generatedHtml;
 }
 
-function renderRecipeStep(id, amount, history) {
+function renderRecipeStep(id, amount, history, forceSingle, doHq) {
     let generatedHtml = recipeHeader(id, amount);
-    let cost = price(id);
-    if (id in recipesMap) {
+    let cost = price(id, doHq);
+    if (!forceSingle && id in recipesMap) {
         generatedHtml += "<ul>";
         let recipe = recipesMap[id];
         if (amount / recipe.resultamount !== 1 && recipe.resultamount !== 1) {
-            generatedHtml += `<li>craft ${tostr((amount / recipe.resultamount))}x ()</li>`;
+            generatedHtml += `<li>craft ${tostr((amount / recipe.resultamount))}x</li>`;
         }
         generatedHtml += `<li>crafting level ${recipe.level}</li>`
         let craftingCost = craftingPrice(recipe);
@@ -312,7 +316,7 @@ function renderRecipeStep(id, amount, history) {
         for (let ingredient of recipe.ingredients) {
             generatedHtml += "<li>Ingredient: ";
             let ingAmount = amount * ingredient.amount / recipe.resultamount;
-            generatedHtml += renderRecipeStep(ingredient.id, ingAmount);
+            generatedHtml += renderRecipeStep(ingredient.id, ingAmount, history, forceSingle);
             generatedHtml += "</li>";
         }
         generatedHtml += "</ul>";
@@ -335,7 +339,7 @@ function renderRecipeStep(id, amount, history) {
 
 function showRecipe(recipe) {
     showWrapper(() => {
-        return renderRecipeStep(recipe.resultid, 1, false);
+        return renderRecipeStep(recipe.resultid, 1, false, false, false);
     });
 }
 
@@ -343,35 +347,24 @@ function showCrystals() {
     showWrapper(() => {
         let generatedHtml = "";
         for (let id = 2; id < 20; id++) {
-            generatedHtml += renderRecipeStep(id, 1, true);
+            generatedHtml += renderRecipeStep(id, 1, true, false, false);
         }
         return generatedHtml;
     });
 }
 
-function arbitrage() {
+function custom(str) {
     showWrapper(() => {
-        let things = [];
-        for (let id in idtoname) {
-            id |= 0;
-            let name = idtoname[id];
-            if (name.startsWith("Classical ")) {
-                let server = priceHQ(id);
-                let light = priceHQ(id, "Light");
-                things.push({
-                    id: id,
-                    name: name,
-                    server: server,
-                    light: light,
-                    profit: server - light,
-                    profitFactor: (server - light) / light,
-                });
+        let generatedHtml = "";
+        let things = []
+        for (let recipe of globaldata.recipes) {
+            if (recipe.resultname.includes(str)) {
+                things.push(recipe);
             }
         }
-        let generatedHtml = "";
-        things.sort((a, b) => b.profitFactor - a.profitFactor);
-        for (let thing of things) {
-            generatedHtml += `${thing.name} is ${thing.light} on Light and ${thing.server} on server for profit of ${thing.profit} (${thing.profitFactor}x) with ${velocityHQ(thing.id)} items/day - <a href=\"https://universalis.app/market/${thing.id}\">open in universalis</a><br/>`;
+        things.sort((a, b) => priceHQ(b.resultid) - priceHQ(a.resultid));
+        for (let recipe of things) {
+            generatedHtml += renderRecipeStep(recipe.resultid, 1, false, true, true);
         }
         return generatedHtml;
     });
@@ -461,8 +454,8 @@ function item() {
         showCrystals();
         return;
     }
-    if (hash === "arbitrage") {
-        arbitrage();
+    if (hash.startsWith("custom:")) {
+        custom(hash.substring(7));
         return;
     }
     if (hash === "gathering") {
