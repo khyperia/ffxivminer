@@ -190,12 +190,16 @@ function price(id, hq, server) {
     return hq ? priceHQ(id, server) : priceNQ(id, server);
 }
 
-function velocity(id, server) {
+function velocityNQ(id, server) {
     return universalis.get(id, server)?.regularSaleVelocity || NaN;
 }
 
 function velocityHQ(id, server) {
     return universalis.get(id, server)?.hqSaleVelocity || NaN;
+}
+
+function velocity(id, hq, server) {
+    return hq ? velocityHQ(id, server) : velocityNQ(id, server);
 }
 
 function priceHistory(id, server) {
@@ -212,7 +216,7 @@ function priceHistory(id, server) {
     return sum / quantity;
 }
 
-function velocityHistory(id, server, hq) {
+function velocityHistory(id, hq, server) {
     let hist = universalisHistory.get(id, server);
     if (hist === null) {
         return NaN;
@@ -309,7 +313,7 @@ function renderRecipeStep(id, amount, history, forceSingle, doHq) {
         if (priceStr) {
             generatedHtml += "<li>" + priceStr + "</li>";
         }
-        let vel = history ? velocityHistory(id) : velocity(id);
+        let vel = history ? velocityHistory(id, doHq) : velocity(id, doHq);
         if (vel) {
             generatedHtml += "<li>sells " + tostr(vel) + " items/day, for a market flux of " + tostr(vel * cost) + " and profit flux of " + tostr(vel * (cost - craftingCost)) + "</li>";
         }
@@ -325,7 +329,7 @@ function renderRecipeStep(id, amount, history, forceSingle, doHq) {
         if (priceStr) {
             generatedHtml += ` - ${priceStr}`;
         }
-        let vel = history ? velocityHistory(id) : velocity(id);
+        let vel = history ? velocityHistory(id, doHq) : velocity(id, doHq);
         if (vel) {
             generatedHtml += ` - ${tostr(vel)} items/day`;
             if (cost) {
@@ -364,7 +368,7 @@ function custom(str) {
         }
         things.sort((a, b) => priceHQ(b.resultid) - priceHQ(a.resultid));
         for (let recipe of things) {
-            generatedHtml += renderRecipeStep(recipe.resultid, 1, false, true, true);
+            generatedHtml += renderRecipeStep(recipe.resultid, 1, true, true, true);
         }
         return generatedHtml;
     });
@@ -379,7 +383,7 @@ function gathering() {
             if (item in idtoname && !idtoname[item].includes("kybuild") && !idtoname[item].includes("Rarefied")) {
                 things.push({
                     item: item,
-                    vel: velocityHistory(item),
+                    vel: velocityHistory(item, false),
                     price: priceHistory(item),
                     limited: globaldata.gathering[item],
                 });
